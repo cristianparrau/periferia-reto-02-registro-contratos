@@ -1,0 +1,67 @@
+import { afterEach, describe, it } from "node:test"
+import assert from "node:assert/strict"
+import { Gemini, limpiarEsquema } from "../src/llm/gemini.ts"
+import { ErrorLLM } from "../src/llm/adapter.ts"
+
+const original = globalThis.fetch
+afterEach(() => { globalThis.fetch = original })
+
+function simularFetch(respuesta: unknown, estado = 200): { peticiones: { url: string; init: RequestInit }[] } {
+  const registro = { peticiones: [] as { url: string; init: RequestInit }[] }
+  globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+    registro.peticiones.push({ url: String(url), init: init ?? {} })
+    return new Response(JSON.stringify(respuesta), { status: estado })
+  }) as typeof fetch
+  return registro
+}
+
+const CLAVE = "clave-de-prueba-1234567890"
+
+describe("adaptador Gemini", () => {
+  it("envía la clave en cabecera (nunca en la URL), las herramientas y temperatura 0", async () => {
+    const r = simularFetch({ candidates: [{ content: { parts: [{ text: "hola" }] } }], usageMetadata: { totalTokenCount: 42 } })
+    const g = new Gemini(CLAVE, "gemini-2.5-flash", 5000)
+    const res = await g.enviar([{ rol: "sistema", texto: "sé breve" }, { rol: "usuario", texto: "hola" }], [{ nombre: "x_y", descripcion: "d", parametros: { type: "object", properties: {} } }])
+    const p = r.peticiones[0]
+    assert.ok(p)
+    assert.ok(!p.url.includes(CLAVE))
+    assert.equal((p.init.headers as Record<string, string>)["x-goog-api-key"], CLAVE)
+    const cuerpo = JSON.parse(String(p.init.body)) as { systemInstruction: { parts: { text: string }[] }; tools: { functionDeclarations: { name: string }[] }[]; generationConfig: { temperature: number } }
+    assert.equal(cuerpo.systemInstruction.parts[0]?.text, "sé breve")
+    assert.equal(cuerpo.tools[0]?.functionDeclarations[0]?.name, "x_y")
+    assert.equal(cuerpo.generationConfig.temperature, 0)
+    assert.equal(res.texto, "hola")
+    assert.equal(res.tokens, 42)
+  })
+
+  it("convierte functionCall en llamadas a herramientas", async () => {
+    simularFetch({ candidates: [{ content: { parts: [{ functionCall: { name: "a_b", args: { caso: "x" } } }] } }] })
+    const res = await new Gemini(CLAVE, "m", 5000).enviar([{ rol: "usuario", texto: "x" }], [])
+    assert.deepEqual(res.llamadas[0], { id: "llamada-0", nombre: "a_b", argumentos: { caso: "x" } })
+  })
+
+  it("un HTTP de error se convierte en ErrorLLM legible sin exponer la clave", async () => {
+    simularFetch({ error: { message: "API key not valid" } }, 400)
+    await assert.rejects(new Gemini(CLAVE, "m", 5000).enviar([{ rol: "usuario", texto: "x" }], []), (e: unknown) => e instanceof ErrorLLM && /400/.test(e.message) && !e.message.includes(CLAVE))
+  })
+
+  it("un timeout se reporta con un mensaje claro", async () => {
+    // Servidor que nunca responde; el temporizador mantiene vivo el proceso hasta que el AbortSignal del adaptador actúe.
+    globalThis.fetch = (async (_u: string | URL, init?: RequestInit) =>
+      new Promise((_, rechazar) => {
+        const vivo = setTimeout(() => rechazar(new Error("el adaptador no abortó")), 5000)
+        init?.signal?.addEventListener("abort", () => { clearTimeout(vivo); rechazar(init.signal?.reason) })
+      })) as typeof fetch
+    await assert.rejects(new Gemini(CLAVE, "m", 50).enviar([{ rol: "usuario", texto: "x" }], []), /no respondió en 0.05 s/)
+  })
+
+  it("adapta el JSON Schema de zod al subconjunto que acepta Gemini", () => {
+    const limpio = limpiarEsquema({ $schema: "x", type: "object", additionalProperties: false, properties: { a: { type: "string", pattern: "^x$" }, b: { type: ["string", "null"] }, c: { anyOf: [{ type: "number" }, { type: "null" }] } } }) as Record<string, unknown>
+    const props = limpio.properties as Record<string, Record<string, unknown>>
+    assert.equal(limpio.$schema, undefined)
+    assert.equal(limpio.additionalProperties, undefined)
+    assert.equal(props.a?.pattern, undefined)
+    assert.deepEqual([props.b?.type, props.b?.nullable], ["string", true])
+    assert.equal(props.c?.nullable, true)
+  })
+})
