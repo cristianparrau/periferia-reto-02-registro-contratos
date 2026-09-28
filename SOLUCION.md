@@ -27,7 +27,7 @@ web/index.html (chat) ──HTTP──▶ src/server.ts ──▶ src/agente.ts 
   - Solo se aceptan correcciones del humano para los campos que estaban en revisión. Cualquier otro valor enviado por el modelo se ignora y se reporta.
 
 ## 4. Elección del modelo
-- **Gemini 3.8 Flash** por REST, temperatura 0. La extracción P0 es determinista; el modelo orquesta el lote, presenta la tabla y conduce la revisión.
+- **Gemini 3.5 Flash-Lite** por REST, temperatura 0. La extracción P0 es determinista; el modelo orquesta el lote, presenta la tabla y conduce la revisión.
 - **Costo estimado**: el buzón de 6 mensajes necesita ~15–20 llamadas × ~8 k tokens ≈ 150 k tokens. Son **~USD 0,05 por lote**, menos de USD 0,01 por contrato con precios de lista de Flash (verificar la tarifa vigente).
 
 ## 5. Estrategia de extracción
@@ -71,6 +71,7 @@ Todo en `src/dominio/extraccion.ts`, sin LLM:
 ## 7. Decisiones y trade-offs
 | Decisión | Alternativa descartada | Por qué |
 |---|---|---|
+| Modelo `gemini-3.5-flash-lite` con respaldo `gemini-3.1-flash-lite` | `gemini-3.8-flash` (el más reciente) | En la capa gratuita, `gemini-3.8-flash` permite solo 20 peticiones diarias por proyecto (verificado con el error `GenerateRequestsPerDayPerProjectPerModel-FreeTier`), y además devolvió 503 por alta demanda. Un evaluador agotaría la cuota en minutos. El trabajo pesado es determinista (herramientas), así que un modelo *lite* basta para orquestar. El adaptador reintenta ante 429/503, respeta el `retryDelay` de Google y, si la cuota diaria se agota, pasa al siguiente modelo de la lista. |
 | Extracción determinista con confianza por campo | Extracción con el LLM | Reproducible y auditable: la evidencia de cada campo es un fragmento del texto. El LLM puede "redondear" un valor o inferir una fecha (riesgo del PRD). |
 | Dedupe por id y luego por NIT + objeto (Jaccard ≥ 0.9), nunca por nombre | Coincidencia por nombre del cliente | Evita falsos duplicados por variaciones del nombre. msg-002 (mismo RUC, otro objeto) queda correctamente como nuevo. |
 | Las herramientas re-extraen desde el documento en cada paso; `registrar` solo acepta correcciones de campos en revisión | Pasar el objeto `contrato` completo del modelo | El modelo no puede alterar un valor que no estaba en duda. |

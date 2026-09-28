@@ -96,6 +96,22 @@ describe("ciclo del agente", () => {
     assert.equal(s.mensajes.length, 2)
   })
 
+  it("si el modelo falla en el turno de confirmación, la pregunta sigue vigente y el usuario puede repetir 'confirmo'", async () => {
+    let fallar = false
+    const pasos = [texto("¿Confirmas?\n[CONFIRMAR]"), llamar("prueba_accion", { id: "x", confirmado: true }), texto("Hecho")]
+    let i = 0
+    const inestable: ProveedorLLM = { nombre: "x", modelo: "x", enviar: async () => { if (fallar) { fallar = false; throw new ErrorLLM("saturado") } return pasos[i++] ?? texto("fin") } }
+    const s = sesion()
+    const a = new Agente(inestable, registro(), "sistema", config)
+    await a.turno(s, "prepara")
+    fallar = true
+    const caido = await a.turno(s, "confirmo")
+    assert.match(caido.reply, /saturado/)
+    assert.equal(s.esperandoConfirmacion, true)
+    const r = await a.turno(s, "confirmo")
+    assert.equal(r.toolCalls[0]?.ok, true)
+  })
+
   it("sin modelo configurado responde con un mensaje claro", async () => {
     const r = await new Agente(null, registro(), "sistema", config).turno(sesion(), "hola")
     assert.match(r.reply, /No hay un modelo configurado/)

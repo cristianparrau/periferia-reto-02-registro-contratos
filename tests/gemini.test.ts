@@ -1,6 +1,6 @@
 import { afterEach, describe, it } from "node:test"
 import assert from "node:assert/strict"
-import { Gemini, limpiarEsquema } from "../src/llm/gemini.ts"
+import { Gemini, esCuotaDiaria, esperaSugerida, limpiarEsquema } from "../src/llm/gemini.ts"
 import { ErrorLLM } from "../src/llm/adapter.ts"
 
 const original = globalThis.fetch
@@ -66,6 +66,44 @@ describe("adaptador Gemini", () => {
     globalThis.fetch = (async () => { llamadas++; return new Response(JSON.stringify({ error: { message: "API key not valid" } }), { status: 400 }) }) as typeof fetch
     await assert.rejects(new Gemini(CLAVE, "m", 5000, [1, 1]).enviar([{ rol: "usuario", texto: "x" }], []), /400: API key not valid/)
     assert.equal(llamadas, 1)
+  })
+
+  it("si el modelo principal sigue saturado, usa el modelo de respaldo", async () => {
+    const urls: string[] = []
+    globalThis.fetch = (async (url: string | URL) => {
+      urls.push(String(url))
+      const respaldo = String(url).includes("modelo-respaldo")
+      return new Response(JSON.stringify(respaldo ? { candidates: [{ content: { parts: [{ text: "desde respaldo" }] } }] } : { error: { message: "high demand" } }), { status: respaldo ? 200 : 503 })
+    }) as typeof fetch
+    const res = await new Gemini(CLAVE, "modelo-principal", 5000, [1], ["modelo-respaldo"]).enviar([{ rol: "usuario", texto: "x" }], [])
+    assert.equal(res.texto, "desde respaldo")
+    assert.deepEqual(urls.map((u) => (u.includes("respaldo") ? "respaldo" : "principal")), ["principal", "principal", "respaldo"])
+  })
+
+  it("cuota diaria agotada: no espera ni reintenta el mismo modelo y pasa al siguiente de la lista", async () => {
+    const urls: string[] = []
+    const diaria = { error: { message: "quota", details: [{ violations: [{ quotaId: "GenerateRequestsPerDayPerProjectPerModel-FreeTier" }] }, { retryDelay: "56s" }] } }
+    globalThis.fetch = (async (url: string | URL) => {
+      const u = String(url); urls.push(u.includes("tercero") ? "tercero" : u.includes("segundo") ? "segundo" : "principal")
+      return u.includes("tercero") ? new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "ok" }] } }] }), { status: 200 }) : new Response(JSON.stringify(diaria), { status: 429 })
+    }) as typeof fetch
+    const inicio = Date.now()
+    const res = await new Gemini(CLAVE, "principal", 5000, [2000, 5000], ["segundo", "tercero"]).enviar([{ rol: "usuario", texto: "x" }], [])
+    assert.equal(res.texto, "ok")
+    assert.deepEqual(urls, ["principal", "segundo", "tercero"])
+    assert.ok(Date.now() - inicio < 1000, "no debe esperar el retryDelay de una cuota diaria")
+    assert.equal(esCuotaDiaria(diaria), true)
+  })
+
+  it("si todos los modelos agotaron la cuota diaria, lo explica", async () => {
+    globalThis.fetch = (async () => new Response(JSON.stringify({ error: { details: [{ violations: [{ quotaId: "RequestsPerDay" }] }] } }), { status: 429 })) as typeof fetch
+    await assert.rejects(new Gemini(CLAVE, "a", 5000, [1], ["b"]).enviar([{ rol: "usuario", texto: "x" }], []), /cuota diaria/)
+  })
+
+  it("respeta la espera sugerida por Google en un 429 (acotada a 30 s)", () => {
+    assert.equal(esperaSugerida({ error: { details: [{}, { retryDelay: "12.5s" }] } }, 2000), 12500)
+    assert.equal(esperaSugerida({ error: { details: [{ retryDelay: "120s" }] } }, 2000), 30000)
+    assert.equal(esperaSugerida({ error: { message: "x" } }, 2000), 2000)
   })
 
   it("un timeout se reporta con un mensaje claro", async () => {

@@ -50,7 +50,8 @@ export class Agente {
 
   async turno(sesion: Sesion, texto: string): Promise<ResultadoTurno> {
     // CA3/RN4: la confirmación solo vale si el turno anterior la pidió y este mensaje la da.
-    const confirmacionHumana = sesion.esperandoConfirmacion && esConfirmacion(texto)
+    const estabaEsperando = sesion.esperandoConfirmacion
+    const confirmacionHumana = estabaEsperando && esConfirmacion(texto)
     sesion.esperandoConfirmacion = false
     sesion.mensajes.push({ rol: "usuario", texto })
     const visibles: LlamadaVisible[] = []
@@ -63,6 +64,8 @@ export class Agente {
         respuesta = await this.llm.enviar([{ rol: "sistema", texto: this.instrucciones }, ...sesion.mensajes], this.herramientas.declaraciones())
       } catch (e) {
         const detalle = e instanceof ErrorLLM ? e.message : "Error desconocido del proveedor."
+        // Si el modelo falla antes de actuar, la pregunta de confirmación sigue vigente: el usuario puede repetir su respuesta.
+        if (visibles.length === 0) sesion.esperandoConfirmacion = estabaEsperando
         return this.cerrar(sesion, `No pude completar la respuesta: ${detalle} Tu sesión sigue activa; intenta de nuevo.`, visibles)
       }
       sesion.tokens += respuesta.tokens

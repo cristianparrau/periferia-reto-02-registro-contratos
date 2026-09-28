@@ -17,7 +17,8 @@ npm install && npm start  # http://localhost:3000
 | Variable | Uso | Default |
 |---|---|---|
 | `GEMINI_API_KEY` | Clave del modelo. Solo backend. | — |
-| `GEMINI_MODEL` | Modelo | `gemini-3.8-flash` |
+| `GEMINI_MODEL` | Modelo | `gemini-3.5-flash-lite` |
+| `GEMINI_MODEL_RESPALDO` | Modelos alternos separados por comas, si el principal está saturado o sin cuota | — (`render.yaml`: `gemini-3.1-flash-lite`) |
 | `MAX_ITERACIONES` | Tope herramienta→modelo por turno | 25 |
 | `MAX_TOKENS_SESION` | Tope de tokens por sesión | 200000 |
 | `LLM_TIMEOUT_MS` | Timeout al proveedor | 60000 |

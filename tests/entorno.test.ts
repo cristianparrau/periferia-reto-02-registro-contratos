@@ -8,7 +8,7 @@ describe("entorno (.env)", () => {
     assert.ok(r.ok)
     assert.equal(r.entorno.MAX_ITERACIONES, 25)
     assert.equal(r.entorno.PORT, 3000)
-    assert.equal(r.entorno.GEMINI_MODEL, "gemini-3.8-flash")
+    assert.equal(r.entorno.GEMINI_MODEL, "gemini-3.5-flash-lite")
     assert.match(r.avisos[0] ?? "", /GEMINI_API_KEY no está definida/)
   })
 
@@ -29,6 +29,16 @@ describe("entorno (.env)", () => {
     assert.ok(r.ok)
     assert.deepEqual([r.entorno.LIMITE_CHAT_POR_MINUTO, r.entorno.CONFIAR_PROXY], [3, true])
     assert.ok(!cargarEntorno({ LIMITE_CHAT_POR_MINUTO: "0" }).ok)
+  })
+
+  it("modelo de respaldo opcional", () => {
+    const r = cargarEntorno({ GEMINI_MODEL_RESPALDO: "gemini-3.1-flash-lite, gemini-3.5-flash" })
+    assert.ok(r.ok)
+    assert.deepEqual(r.entorno.GEMINI_MODEL_RESPALDO, ["gemini-3.1-flash-lite", "gemini-3.5-flash"])
+    const vacio = cargarEntorno({})
+    assert.ok(vacio.ok)
+    assert.deepEqual(vacio.entorno.GEMINI_MODEL_RESPALDO, [])
+    assert.ok(!cargarEntorno({ GEMINI_MODEL_RESPALDO: "modelo con espacios" }).ok)
   })
 
   it("trata las variables vacías como no definidas", () => {
