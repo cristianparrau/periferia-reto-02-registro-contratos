@@ -63,6 +63,9 @@ Cada prueba corre sobre una copia temporal de los fixtures (no toca `out/`). Sui
 ## Link de prueba
 **https://periferia-reto-02-registro-contratos.onrender.com** (plan gratuito: si estuvo inactivo, la primera carga tarda ~1 min)
 
+### Capa gratuita de Gemini
+El link público usa la capa gratuita de la API de Gemini, que tiene límites diarios y por minuto por proyecto y picos de demanda (HTTP 429/503). El agente reintenta, respeta el tiempo de espera que indica Google y pasa a los modelos de respaldo. Si aun así no hay cuota, el chat lo informa en lenguaje claro y la sesión sigue activa. En ese caso, la lógica completa se puede verificar sin modelo con `npm run demo` y `npm test`, o localmente con una clave propia (`.env`).
+
 ## Despliegue (Render)
 El repositorio incluye `render.yaml` (Blueprint):
 1. En [render.com](https://render.com): **New → Blueprint** → conectar `cristianparrau/periferia-reto-02-registro-contratos`.
