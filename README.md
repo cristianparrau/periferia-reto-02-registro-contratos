@@ -21,6 +21,9 @@ npm install && npm start  # http://localhost:3000
 | `MAX_ITERACIONES` | Tope herramienta→modelo por turno | 25 |
 | `MAX_TOKENS_SESION` | Tope de tokens por sesión | 200000 |
 | `LLM_TIMEOUT_MS` | Timeout al proveedor | 60000 |
+| `LIMITE_CHAT_POR_MINUTO` | Mensajes de chat por IP por minuto (protege la clave en el link público) | 10 |
+| `MAX_SESIONES` | Sesiones en memoria (se descarta la más antigua) | 200 |
+| `CONFIAR_PROXY` | `true` detrás de un proxy (Render) para identificar la IP real | false |
 | `FECHA_REFERENCIA` | Fecha de registro de los contratos (YYYY-MM-DD) | hoy (Bogotá) |
 | `PORT` | Puerto HTTP | 3000 |
 
@@ -57,7 +60,15 @@ Cada prueba corre sobre una copia temporal de los fixtures (no toca `out/`). Sui
 | GET | `/out/<ruta>` | Descarga de archivos generados (solo lectura, dentro de `out/`) |
 
 ## Link de prueba
-_Pendiente de despliegue:_ `<URL>`
+_Pendiente: se completa tras el despliegue._ `<URL de Render>`
+
+## Despliegue (Render)
+El repositorio incluye `render.yaml` (Blueprint):
+1. En [render.com](https://render.com): **New → Blueprint** → conectar `cristianparrau/periferia-reto-02-registro-contratos`.
+2. Render lee `render.yaml` (Node 22, `npm ci`, `npm start`, health check en `/api/health`) y pide el valor de `GEMINI_API_KEY`: se pega en el panel y nunca queda en el repositorio.
+3. Al terminar, Render entrega la URL pública (`https://<servicio>.onrender.com`).
+
+Notas del plan gratuito: el servicio se duerme tras ~15 min sin tráfico (la primera petición tarda ~1 min en despertar; abrir el link unos minutos antes de la defensa) y el disco es efímero (`out/` se reinicia en cada despliegue).
 
 ## Estructura
 ```

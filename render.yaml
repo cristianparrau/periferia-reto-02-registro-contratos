@@ -1,0 +1,29 @@
+# Despliegue en Render (Blueprint). La clave del modelo NO va aquí: se pega en el panel de Render (sync: false).
+services:
+  - type: web
+    name: periferia-reto-02-registro-contratos
+    runtime: node
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GEMINI_MODEL
+        value: gemini-2.5-flash
+      - key: MAX_ITERACIONES
+        value: "25"
+      - key: MAX_TOKENS_SESION
+        value: "200000"
+      - key: LLM_TIMEOUT_MS
+        value: "60000"
+      - key: LIMITE_CHAT_POR_MINUTO
+        value: "10"
+      - key: MAX_SESIONES
+        value: "200"
+      - key: CONFIAR_PROXY
+        value: "true"

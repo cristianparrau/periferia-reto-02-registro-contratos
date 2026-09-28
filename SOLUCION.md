@@ -125,3 +125,5 @@ Resultados de la demo:
 | Concurrencia sobre el CSV | Migrar a lista de SharePoint o base de datos con bloqueo optimista. |
 | Falsos duplicados o actualizaciones | Dedupe por identificador fiscal + objeto; toda actualización queda en el historial con valores antes y después. |
 | Datos contractuales sensibles | Permisos de SharePoint por rol; el agente no envía el texto completo al modelo, solo los resultados de las herramientas. |
+| Link público que consume la clave del modelo | Límite de mensajes por IP (`LIMITE_CHAT_POR_MINUTO`, 429 con Retry-After), tope de iteraciones y de tokens por sesión, tope de sesiones en memoria; en producción, SSO corporativo. |
+| Archivos generados descargables en `/out/` desde el link público | Los datos del reto son ficticios; en producción, `out/` no se publica y los archivos se entregan en SharePoint con permisos por rol. |

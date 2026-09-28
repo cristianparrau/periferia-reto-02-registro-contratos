@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Agente conversacional para el registro de contratos vigentes desde un buzón único",
   "engines": {
-    "node": ">=20"
+    "node": ">=20.12"
   },
   "scripts": {
     "dev": "node --env-file-if-exists=.env --watch --import tsx src/server.ts",
@@ -17,11 +17,11 @@
     "verificar:conexion": "tsx scripts/verificar-entorno.ts --conectar"
   },
   "dependencies": {
-    "zod": "^4.6.5"
+    "zod": "^4.6.5",
+    "tsx": "^4.23.15"
   },
   "devDependencies": {
     "@types/node": "^26.6.3",
-    "tsx": "^4.23.15",
     "typescript": "^7.0.2"
   }
 }
