@@ -21,6 +21,16 @@ describe("entorno (.env)", () => {
     assert.equal(r.avisos.length, 0)
   })
 
+  it("variables de protección del link público", () => {
+    const def = cargarEntorno({})
+    assert.ok(def.ok)
+    assert.deepEqual([def.entorno.LIMITE_CHAT_POR_MINUTO, def.entorno.MAX_SESIONES, def.entorno.CONFIAR_PROXY], [10, 200, false])
+    const r = cargarEntorno({ LIMITE_CHAT_POR_MINUTO: "3", CONFIAR_PROXY: "true" })
+    assert.ok(r.ok)
+    assert.deepEqual([r.entorno.LIMITE_CHAT_POR_MINUTO, r.entorno.CONFIAR_PROXY], [3, true])
+    assert.ok(!cargarEntorno({ LIMITE_CHAT_POR_MINUTO: "0" }).ok)
+  })
+
   it("trata las variables vacías como no definidas", () => {
     const r = cargarEntorno({ FECHA_REFERENCIA: "", GEMINI_API_KEY: "", PORT: " " })
     assert.ok(r.ok)

@@ -17,6 +17,9 @@ export const EntornoSchema = z.object({
   MAX_TOKENS_SESION: entero("MAX_TOKENS_SESION", 200000, 1000, 10_000_000),
   LLM_TIMEOUT_MS: entero("LLM_TIMEOUT_MS", 60000, 1000, 600000),
   PORT: entero("PORT", 3000, 1, 65535),
+  LIMITE_CHAT_POR_MINUTO: entero("LIMITE_CHAT_POR_MINUTO", 10, 1, 1000),
+  MAX_SESIONES: entero("MAX_SESIONES", 200, 1, 100000),
+  CONFIAR_PROXY: z.string().trim().optional().transform((v) => v === "true" || v === "1"),
   FECHA_REFERENCIA: opcional(z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "FECHA_REFERENCIA debe tener formato YYYY-MM-DD").refine((v) => !Number.isNaN(Date.parse(v)), "FECHA_REFERENCIA no es una fecha válida")),
 })
 export type Entorno = z.infer<typeof EntornoSchema>

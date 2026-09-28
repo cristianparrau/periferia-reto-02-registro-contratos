@@ -64,6 +64,29 @@ describe("servidor con .env", { timeout: 60000 }, () => {
     } finally { s.proceso.kill() }
   })
 
+  it("limita los mensajes de chat por IP (429 con Retry-After) y distingue IPs detrás del proxy", async () => {
+    const s = await levantar("LIMITE_CHAT_POR_MINUTO=2\nCONFIAR_PROXY=true\n")
+    try {
+      const enviar = (ip: string) => fetch(`${s.base}/api/chat`, { method: "POST", headers: { "x-forwarded-for": `${ip}, 10.0.0.1` }, body: JSON.stringify({ message: "hola" }) })
+      assert.equal((await enviar("1.1.1.1")).status, 200)
+      assert.equal((await enviar("1.1.1.1")).status, 200)
+      const bloqueada = await enviar("1.1.1.1")
+      assert.equal(bloqueada.status, 429)
+      assert.ok(Number(bloqueada.headers.get("retry-after")) > 0)
+      assert.equal((await enviar("2.2.2.2")).status, 200, "otra IP no se ve afectada")
+      assert.equal((await fetch(`${s.base}/api/health`)).status, 200, "health no se limita")
+    } finally { s.proceso.kill() }
+  })
+
+  it("sin CONFIAR_PROXY ignora X-Forwarded-For (no se puede evadir el límite falsificando la cabecera)", async () => {
+    const s = await levantar("LIMITE_CHAT_POR_MINUTO=1\n")
+    try {
+      const enviar = (ip: string) => fetch(`${s.base}/api/chat`, { method: "POST", headers: { "x-forwarded-for": ip }, body: JSON.stringify({ message: "hola" }) })
+      assert.equal((await enviar("3.3.3.3")).status, 200)
+      assert.equal((await enviar("4.4.4.4")).status, 429)
+    } finally { s.proceso.kill() }
+  })
+
   it("con un .env inválido no levanta y explica qué corregir", async () => {
     const s = await levantar("MAX_ITERACIONES=abc\nPORT=99999\n")
     const codigo = await s.codigo

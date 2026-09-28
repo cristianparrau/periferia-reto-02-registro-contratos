@@ -6,6 +6,7 @@ import { Agente, cargarInstrucciones, type Sesion } from "./agente.ts"
 import { RegistroHerramientas } from "./core/registro-herramientas.ts"
 import { crearProveedor } from "./llm/index.ts"
 import { cargarEntorno } from "./core/entorno.ts"
+import { LimitadorPorIp } from "./core/limite.ts"
 import { APLICACION } from "./config.ts"
 
 const directorio = process.cwd()
@@ -25,6 +26,14 @@ const agente = new Agente(llm, herramientas, await cargarInstrucciones(directori
   maxTokensSesion: entorno.MAX_TOKENS_SESION,
 })
 const sesiones = new Map<string, Sesion>()
+const limitador = new LimitadorPorIp(entorno.LIMITE_CHAT_POR_MINUTO)
+
+/** IP del cliente. Detrás de un proxy (Render, etc.) se usa el primer valor de X-Forwarded-For solo si CONFIAR_PROXY=true. */
+function ipCliente(req: IncomingMessage): string {
+  const reenviada = req.headers["x-forwarded-for"]
+  const primera = (Array.isArray(reenviada) ? reenviada[0] : reenviada)?.split(",")[0]?.trim()
+  return (entorno.CONFIAR_PROXY && primera) || req.socket.remoteAddress || "desconocida"
+}
 
 const TIPOS: Record<string, string> = { ".html": "text/html; charset=utf-8", ".md": "text/markdown; charset=utf-8", ".json": "application/json", ".pdf": "application/pdf", ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".txt": "text/plain; charset=utf-8" }
 
@@ -45,12 +54,19 @@ async function leerCuerpo(req: IncomingMessage): Promise<unknown> {
 function obtenerSesion(id: string): Sesion {
   const existente = sesiones.get(id)
   if (existente) return existente
+  // Tope de memoria: se descarta la sesión más antigua (Map conserva el orden de inserción).
+  if (sesiones.size >= entorno.MAX_SESIONES) sesiones.delete(sesiones.keys().next().value ?? "")
   const nueva: Sesion = { id, mensajes: [], tokens: 0, esperandoConfirmacion: false }
   sesiones.set(id, nueva)
   return nueva
 }
 
 async function chat(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const permiso = limitador.permitir(ipCliente(req))
+  if (!permiso.ok) {
+    res.setHeader("retry-after", String(permiso.reintentarEnSeg))
+    return json(res, 429, { error: `Demasiadas solicitudes. Intenta de nuevo en ${permiso.reintentarEnSeg} s.` })
+  }
   let cuerpo: unknown
   try {
     cuerpo = await leerCuerpo(req)
