@@ -43,12 +43,17 @@ function aContenidos(mensajes: Mensaje[]): Contenido[] {
   return salida
 }
 
+/** Códigos transitorios de Google (saturación o cuota momentánea): se reintentan con espera creciente. */
+const REINTENTABLES = new Set([429, 500, 503])
+const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 export class Gemini implements ProveedorLLM {
   readonly nombre = "gemini"
   constructor(
     private readonly clave: string,
     readonly modelo: string,
     private readonly timeoutMs: number,
+    private readonly esperasReintentoMs: number[] = [2000, 5000],
   ) {}
 
   async enviar(mensajes: Mensaje[], herramientas: DeclaracionHerramienta[]): Promise<RespuestaLLM> {
@@ -59,21 +64,29 @@ export class Gemini implements ProveedorLLM {
       tools: [{ functionDeclarations: herramientas.map((h) => ({ name: h.nombre, description: h.descripcion, parameters: limpiarEsquema(h.parametros) })) }],
       generationConfig: { temperature: 0 },
     }
-    let res: Response
-    try {
-      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.modelo}:generateContent`, {
-        method: "POST",
-        // La clave va en cabecera (no en la URL) para que no quede en logs de proxies.
-        headers: { "content-type": "application/json", "x-goog-api-key": this.clave },
-        body: JSON.stringify(cuerpo),
-        signal: AbortSignal.timeout(this.timeoutMs),
-      })
-    } catch (e) {
-      const timeout = e instanceof Error && e.name === "TimeoutError"
-      throw new ErrorLLM(timeout ? `El modelo no respondió en ${this.timeoutMs / 1000} s.` : "No fue posible conectar con el proveedor del modelo.")
+    let res: Response | null = null
+    let json: RespuestaGemini = {}
+    for (let intento = 0; intento <= this.esperasReintentoMs.length; intento++) {
+      if (intento > 0) await esperar(this.esperasReintentoMs[intento - 1] ?? 0)
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${this.modelo}:generateContent`, {
+          method: "POST",
+          // La clave va en cabecera (no en la URL) para que no quede en logs de proxies.
+          headers: { "content-type": "application/json", "x-goog-api-key": this.clave },
+          body: JSON.stringify(cuerpo),
+          signal: AbortSignal.timeout(this.timeoutMs),
+        })
+      } catch (e) {
+        const timeout = e instanceof Error && e.name === "TimeoutError"
+        throw new ErrorLLM(timeout ? `El modelo no respondió en ${this.timeoutMs / 1000} s.` : "No fue posible conectar con el proveedor del modelo.")
+      }
+      json = (await res.json().catch(() => ({}))) as RespuestaGemini
+      if (!REINTENTABLES.has(res.status)) break
     }
-    const json = (await res.json().catch(() => ({}))) as RespuestaGemini
-    if (!res.ok) throw new ErrorLLM(`El proveedor del modelo respondió ${res.status}: ${json.error?.message ?? "error sin detalle"}`)
+    if (!res?.ok) {
+      const saturado = res && REINTENTABLES.has(res.status)
+      throw new ErrorLLM(saturado ? `El modelo está saturado en este momento (HTTP ${res?.status}); se reintentó ${this.esperasReintentoMs.length} veces. Intenta de nuevo en un minuto.` : `El proveedor del modelo respondió ${res?.status}: ${json.error?.message ?? "error sin detalle"}`)
+    }
     const partes = json.candidates?.[0]?.content?.parts ?? []
     return {
       texto: partes.map((p) => p.text ?? "").join("").trim(),

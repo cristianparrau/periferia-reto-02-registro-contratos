@@ -12,7 +12,7 @@ const opcional = (s: z.ZodString) => z.string().trim().optional().transform((v) 
 export const EntornoSchema = z.object({
   LLM_PROVIDER: z.string().trim().optional().transform((v) => v || "gemini").pipe(z.enum(["gemini"], { error: "LLM_PROVIDER no soportado (use gemini)" })),
   GEMINI_API_KEY: opcional(z.string().min(20, "GEMINI_API_KEY parece incompleta (muy corta)").regex(/^\S+$/, "GEMINI_API_KEY no debe tener espacios")),
-  GEMINI_MODEL: z.string().trim().optional().transform((v) => v || "gemini-2.5-flash").pipe(z.string().regex(/^[\w.-]+$/, "GEMINI_MODEL inválido")),
+  GEMINI_MODEL: z.string().trim().optional().transform((v) => v || "gemini-3.8-flash").pipe(z.string().regex(/^[\w.-]+$/, "GEMINI_MODEL inválido")),
   MAX_ITERACIONES: entero("MAX_ITERACIONES", 25, 1, 100),
   MAX_TOKENS_SESION: entero("MAX_TOKENS_SESION", 200000, 1000, 10_000_000),
   LLM_TIMEOUT_MS: entero("LLM_TIMEOUT_MS", 60000, 1000, 600000),

@@ -17,7 +17,7 @@ npm install && npm start  # http://localhost:3000
 | Variable | Uso | Default |
 |---|---|---|
 | `GEMINI_API_KEY` | Clave del modelo. Solo backend. | — |
-| `GEMINI_MODEL` | Modelo | `gemini-2.5-flash` |
+| `GEMINI_MODEL` | Modelo | `gemini-3.8-flash` |
 | `MAX_ITERACIONES` | Tope herramienta→modelo por turno | 25 |
 | `MAX_TOKENS_SESION` | Tope de tokens por sesión | 200000 |
 | `LLM_TIMEOUT_MS` | Timeout al proveedor | 60000 |
@@ -60,7 +60,7 @@ Cada prueba corre sobre una copia temporal de los fixtures (no toca `out/`). Sui
 | GET | `/out/<ruta>` | Descarga de archivos generados (solo lectura, dentro de `out/`) |
 
 ## Link de prueba
-_Pendiente: se completa tras el despliegue._ `<URL de Render>`
+**https://periferia-reto-02-registro-contratos.onrender.com** (plan gratuito: si estuvo inactivo, la primera carga tarda ~1 min)
 
 ## Despliegue (Render)
 El repositorio incluye `render.yaml` (Blueprint):

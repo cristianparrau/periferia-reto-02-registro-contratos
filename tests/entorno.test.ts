@@ -8,7 +8,7 @@ describe("entorno (.env)", () => {
     assert.ok(r.ok)
     assert.equal(r.entorno.MAX_ITERACIONES, 25)
     assert.equal(r.entorno.PORT, 3000)
-    assert.equal(r.entorno.GEMINI_MODEL, "gemini-2.5-flash")
+    assert.equal(r.entorno.GEMINI_MODEL, "gemini-3.8-flash")
     assert.match(r.avisos[0] ?? "", /GEMINI_API_KEY no está definida/)
   })
 

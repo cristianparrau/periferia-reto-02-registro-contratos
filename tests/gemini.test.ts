@@ -45,6 +45,29 @@ describe("adaptador Gemini", () => {
     await assert.rejects(new Gemini(CLAVE, "m", 5000).enviar([{ rol: "usuario", texto: "x" }], []), (e: unknown) => e instanceof ErrorLLM && /400/.test(e.message) && !e.message.includes(CLAVE))
   })
 
+  it("reintenta ante 503/429 (saturación) y responde si Google se recupera", async () => {
+    const estados = [503, 429, 200]
+    let llamadas = 0
+    globalThis.fetch = (async () => {
+      const estado = estados[llamadas++] ?? 200
+      return new Response(JSON.stringify(estado === 200 ? { candidates: [{ content: { parts: [{ text: "ok" }] } }] } : { error: { message: "high demand" } }), { status: estado })
+    }) as typeof fetch
+    const res = await new Gemini(CLAVE, "m", 5000, [1, 1]).enviar([{ rol: "usuario", texto: "x" }], [])
+    assert.equal(llamadas, 3)
+    assert.equal(res.texto, "ok")
+  })
+
+  it("si la saturación persiste, informa que se reintentó; un 400 no se reintenta", async () => {
+    let llamadas = 0
+    globalThis.fetch = (async () => { llamadas++; return new Response(JSON.stringify({ error: { message: "high demand" } }), { status: 503 }) }) as typeof fetch
+    await assert.rejects(new Gemini(CLAVE, "m", 5000, [1, 1]).enviar([{ rol: "usuario", texto: "x" }], []), /saturado.*reintentó 2 veces/)
+    assert.equal(llamadas, 3)
+    llamadas = 0
+    globalThis.fetch = (async () => { llamadas++; return new Response(JSON.stringify({ error: { message: "API key not valid" } }), { status: 400 }) }) as typeof fetch
+    await assert.rejects(new Gemini(CLAVE, "m", 5000, [1, 1]).enviar([{ rol: "usuario", texto: "x" }], []), /400: API key not valid/)
+    assert.equal(llamadas, 1)
+  })
+
   it("un timeout se reporta con un mensaje claro", async () => {
     // Servidor que nunca responde; el temporizador mantiene vivo el proceso hasta que el AbortSignal del adaptador actúe.
     globalThis.fetch = (async (_u: string | URL, init?: RequestInit) =>

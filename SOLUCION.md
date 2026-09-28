@@ -27,7 +27,7 @@ web/index.html (chat) ──HTTP──▶ src/server.ts ──▶ src/agente.ts 
   - Solo se aceptan correcciones del humano para los campos que estaban en revisión. Cualquier otro valor enviado por el modelo se ignora y se reporta.
 
 ## 4. Elección del modelo
-- **Gemini 2.5 Flash** por REST, temperatura 0. La extracción P0 es determinista; el modelo orquesta el lote, presenta la tabla y conduce la revisión.
+- **Gemini 3.8 Flash** por REST, temperatura 0. La extracción P0 es determinista; el modelo orquesta el lote, presenta la tabla y conduce la revisión.
 - **Costo estimado**: el buzón de 6 mensajes necesita ~15–20 llamadas × ~8 k tokens ≈ 150 k tokens. Son **~USD 0,05 por lote**, menos de USD 0,01 por contrato con precios de lista de Flash (verificar la tarifa vigente).
 
 ## 5. Estrategia de extracción
