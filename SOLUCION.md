@@ -110,13 +110,13 @@ Resultados de la demo:
 ## 10. Uso de IA
 - **Asistente**: Claude (Anthropic) en modo agente sobre la carpeta del proyecto.
 - **Para qué**: análisis de fixtures y trampas (otrosí con id del contrato original, mismo cliente con otro objeto, formatos numéricos CO/US, firma sin día), generación de código, pruebas y redacción de este documento.
-- **Decisiones propias**: Node, Gemini y validar cada bloque antes de avanzar.
+- **Decisiones propias**: Node, Gemini y validación de cada bloque de ejecución y aprobación del mismo para continuar.
 - **Corregido durante la revisión**:
   - La primera versión no extraía el valor del otrosí, porque su cláusula tiene otro formato.
   - Un adjunto vacío se reportaba como "sin contrato".
   - `fecha_registro` no coincidía con la fecha de las alertas en la demo.
   - Todo se detectó con las pruebas y se corrigió.
-- En la instalación desde cero se detectó que un valor no numérico en `.env` (ej. `MAX_ITERACIONES=abc`) dejaba el tope en `NaN` y el agente nunca llamaba al modelo. Se agregó la validación del entorno con zod al arrancar, `npm run verificar` y la suite `npm test`.
+- En la instalación desde cero se detectó que un valor no numérico en `.env` (ej. `MAX_ITERACIONES=abc`) dejaba el tope en `NaN` y el agente nunca llamaba al modelo. Tambien se agregó la validación del entorno con zod al arrancar, `npm run verificar` y la suite `npm test`.
 
 ## 11. Riesgos para producción
 | Riesgo | Mitigación |
